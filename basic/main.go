@@ -75,6 +75,7 @@ func main() {
 		log.Fatalf("failed to read from env: %v", err)
 		return
 	}
+	r.PostgresDatabase = "host=localhost port=5432 user=postgres password=123 dbname=postgres sslmode=disable"
 	r.storage = &postgresql.PostgresBackend{DatabaseURL: r.PostgresDatabase}
 	if err := relayer.Start(&r); err != nil {
 		log.Fatalf("server terminated: %v", err)
