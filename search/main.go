@@ -1,25 +1,21 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/fiatjaf/relayer"
-	"github.com/fiatjaf/relayer/storage/postgresql"
+	"github.com/fiatjaf/relayer/storage/elasticsearch"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/nbd-wtf/go-nostr"
 )
 
 type Relay struct {
-	PostgresDatabase string `envconfig:"POSTGRESQL_DATABASE"`
-
-	storage *postgresql.PostgresBackend
+	storage *elasticsearch.ElasticsearchStorage
 }
 
 func (r *Relay) Name() string {
-	return "BasicRelay"
+	return "SearchRelay"
 }
 
 func (r *Relay) Storage() relayer.Storage {
@@ -34,27 +30,25 @@ func (r *Relay) Init() error {
 		return fmt.Errorf("couldn't process envconfig: %w", err)
 	}
 
-	// every hour, delete all very old events
-	go func() {
-		db := r.Storage().(*postgresql.PostgresBackend)
-
-		for {
-			time.Sleep(60 * time.Minute)
-			db.DB.Exec(`DELETE FROM event WHERE created_at < $1`, time.Now().AddDate(0, -3, 0).Unix()) // 3 months
-		}
-	}()
-
 	return nil
 }
 
 func (r *Relay) AcceptEvent(evt *nostr.Event) bool {
 	// block events that are too large
-	jsonb, _ := json.Marshal(evt)
-	if len(jsonb) > 10000 {
-		return false
-	}
+	// jsonb, _ := json.Marshal(evt)
+	// if len(jsonb) > 100000 {
+	// 	return false
+	// }
 
 	return true
+}
+
+func (r *Relay) BeforeSave(evt *nostr.Event) {
+	// do nothing
+}
+
+func (r *Relay) AfterSave(evt *nostr.Event) {
+
 }
 
 func main() {
@@ -63,8 +57,7 @@ func main() {
 		log.Fatalf("failed to read from env: %v", err)
 		return
 	}
-	r.PostgresDatabase = "host=localhost port=5432 user=postgres password=123 dbname=postgres sslmode=disable"
-	r.storage = &postgresql.PostgresBackend{DatabaseURL: r.PostgresDatabase}
+	r.storage = &elasticsearch.ElasticsearchStorage{}
 	if err := relayer.Start(&r); err != nil {
 		log.Fatalf("server terminated: %v", err)
 	}
